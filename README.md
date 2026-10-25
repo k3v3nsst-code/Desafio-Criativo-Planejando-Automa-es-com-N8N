@@ -208,7 +208,3 @@ Automação de Leads — n8n
 - Para volumes elevados ou exigências críticas de consistência, considere substituir o Google Sheets por um banco relacional (PostgreSQL, Supabase).
 
 ---
-
-## 📄 Licença
-
-Distribuído sob a licença **MIT**. Veja [`LICENSE`](LICENSE) para mais informações.
