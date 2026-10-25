@@ -1,0 +1,42 @@
+{
+  "name": "leads-monitoramento-erros",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "responsavel-tecnico@suaempresa.com",
+        "subject": "=⚠️ Erro no workflow de leads — {{ $json.workflow.name }}",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html><html lang=\"pt-BR\"><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;color:#333;font-size:14px}h2{color:#c9111c}table{border-collapse:collapse;margin-top:12px}td{padding:6px 12px;border-bottom:1px solid #eee}td:first-child{font-weight:bold;color:#555;width:180px}.footer{margin-top:20px;color:#888;font-size:12px;border-top:1px solid #eee;padding-top:10px}</style></head><body><h2>⚠️ Erro no workflow de leads</h2><p>Uma falha técnica foi detectada e requer atenção.</p><table><tr><td>Workflow:</td><td>{{ $json.workflow.name }}</td></tr><tr><td>Último nó executado:</td><td>{{ $json.execution.lastNodeExecuted }}</td></tr><tr><td>Mensagem de erro:</td><td>{{ $json.execution.error.message }}</td></tr><tr><td>Data/hora:</td><td>{{ $now.toISO() }}</td></tr></table><p style=\"margin-top:16px\">Acesse o painel do n8n para investigar a execução e corrigir a falha.</p><div class=\"footer\">Automação de Leads — n8n · Alerta automático</div></body></html>",
+        "options": {}
+      },
+      "id": "gmail-alertar-erro",
+      "name": "Alertar Responsavel",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL-GMAIL",
+          "name": "Gmail — Automação Leads"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [[{"node": "Alertar Responsavel", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "_README": "Configure este workflow em 'Settings > Error Workflow' do workflow leads-cadastro. Substitua o destinatário pelo e-mail do responsável técnico real."
+}

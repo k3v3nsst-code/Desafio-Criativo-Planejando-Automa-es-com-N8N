@@ -1,0 +1,172 @@
+{
+  "name": "leads-renotificacao",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "minutes", "minutesInterval": 15}]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger (15min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "SUBSTITUA-PELO-ID-DA-PLANILHA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status_notificacao",
+              "condition": "eq",
+              "keyValue": "falha"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "gsheets-buscar-pendentes",
+      "name": "Buscar Pendentes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [460, 300],
+      "continueOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL",
+          "name": "Google Sheets — Leads"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "cond-ha-pendentes",
+              "leftValue": "={{ $items().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-ha-pendentes",
+      "name": "Ha Pendentes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {},
+      "id": "noop-nada-a-fazer",
+      "name": "Nada a Fazer",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [900, 480]
+    },
+    {
+      "parameters": {
+        "sendTo": "equipe-comercial@suaempresa.com",
+        "subject": "=Novo lead cadastrado: {{ $json.nome }}",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html><html lang=\"pt-BR\"><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;color:#333;font-size:14px}h2{color:#1a73e8}table{border-collapse:collapse;margin-top:12px}td{padding:6px 12px;border-bottom:1px solid #eee}td:first-child{font-weight:bold;color:#555;width:140px}.footer{margin-top:20px;color:#888;font-size:12px;border-top:1px solid #eee;padding-top:10px}</style></head><body><h2>📋 Novo lead cadastrado</h2><p>Olá, equipe comercial!</p><p>Um novo lead foi registrado automaticamente no sistema e está pronto para acompanhamento.</p><table><tr><td>Nome:</td><td>{{ $json.nome }}</td></tr><tr><td>E-mail:</td><td>{{ $json.email }}</td></tr><tr><td>Telefone:</td><td>{{ $json.telefone || 'Não informado' }}</td></tr><tr><td>Empresa:</td><td>{{ $json.empresa || 'Não informada' }}</td></tr><tr><td>Origem:</td><td>{{ $json.origem || 'Não informada' }}</td></tr><tr><td>Data do cadastro:</td><td>{{ $json.data_cadastro }}</td></tr></table><p style=\"margin-top:16px\">Acesse a planilha de leads para consultar as informações completas e iniciar o acompanhamento comercial.</p><div class=\"footer\">Atenciosamente,<br><strong>Automação de Leads — n8n</strong><br>Esta é uma mensagem automática. Não responda a este e-mail.</div></body></html>",
+        "options": {}
+      },
+      "id": "gmail-reenviar",
+      "name": "Reenviar Notificacao",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "continueOnFail": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL-GMAIL",
+          "name": "Gmail — Automação Leads"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "SUBSTITUA-PELO-ID-DA-PLANILHA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status_notificacao": "enviado",
+            "ultima_tentativa": "={{ $now.toISO() }}"
+          }
+        },
+        "where": {
+          "values": [
+            {
+              "column": "email",
+              "value": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "gsheets-atualizar-status",
+      "name": "Atualizar Status Enviado",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1120, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL",
+          "name": "Google Sheets — Leads"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (15min)": {
+      "main": [[{"node": "Buscar Pendentes", "type": "main", "index": 0}]]
+    },
+    "Buscar Pendentes": {
+      "main": [[{"node": "Ha Pendentes", "type": "main", "index": 0}]]
+    },
+    "Ha Pendentes": {
+      "main": [
+        [{"node": "Reenviar Notificacao", "type": "main", "index": 0}],
+        [{"node": "Nada a Fazer", "type": "main", "index": 0}]
+      ]
+    },
+    "Reenviar Notificacao": {
+      "main": [[{"node": "Atualizar Status Enviado", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "_README": "Workflow auxiliar. Executa a cada 15 minutos e reenvia notificações com status_notificacao = 'falha'. Nao insere novas linhas na planilha."
+}

@@ -1,0 +1,392 @@
+{
+  "name": "leads-cadastro",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "leads",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-receber-lead",
+      "name": "Receber Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "SUBSTITUA-PELO-ID-GERADO-PELO-N8N"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"nome\": $json.nome?.toString().trim() ?? \"\",\n  \"email\": $json.email?.toString().trim().toLowerCase() ?? \"\",\n  \"telefone\": $json.telefone?.toString().trim() ?? \"\",\n  \"empresa\": $json.empresa?.toString().trim() ?? \"\",\n  \"origem\": $json.origem?.toString().trim() ?? \"\",\n  \"data_cadastro\": $now.toISO()\n}",
+        "options": {}
+      },
+      "id": "set-normalizar-dados",
+      "name": "Normalizar Dados",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-nome",
+              "leftValue": "={{ $json.nome }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cond-email",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cond-email-regex",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-validar-dados",
+      "name": "Validar Dados",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  ...$json,\n  \"status_cadastro\": \"invalido\",\n  \"status_notificacao\": \"nao_aplicavel\",\n  \"observacoes\": $json.nome !== \"\" ? \"E-mail invalido ou ausente\" : \"Nome ausente\"\n}",
+        "options": {}
+      },
+      "id": "set-marcar-invalido",
+      "name": "Marcar Invalido",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [900, 480]
+    },
+    {
+      "parameters": {},
+      "id": "noop-encerrar-invalido",
+      "name": "Encerrar Invalido",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1120, 480]
+    },
+    {
+      "parameters": {
+        "operation": "lookup",
+        "documentId": {
+          "__rl": true,
+          "value": "SUBSTITUA-PELO-ID-DA-PLANILHA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "lookupColumn": "email",
+        "lookupValue": "={{ $json.email }}",
+        "options": {
+          "returnAllMatches": true
+        }
+      },
+      "id": "gsheets-buscar-lead",
+      "name": "Buscar Lead Existente",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [900, 300],
+      "continueOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL",
+          "name": "Google Sheets — Leads"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "cond-duplicado",
+              "leftValue": "={{ $items().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-verificar-duplicidade",
+      "name": "Verificar Duplicidade",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  ...$json,\n  \"status_cadastro\": \"duplicado\",\n  \"status_notificacao\": \"nao_aplicavel\",\n  \"observacoes\": \"Lead ja cadastrado com este e-mail\"\n}",
+        "options": {}
+      },
+      "id": "set-marcar-duplicado",
+      "name": "Marcar Duplicado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1340, 480]
+    },
+    {
+      "parameters": {},
+      "id": "noop-encerrar-duplicado",
+      "name": "Encerrar Duplicado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1560, 480]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"id\": $now.toMillis().toString(),\n  \"nome\": $json.nome,\n  \"email\": $json.email,\n  \"telefone\": $json.telefone || \"\",\n  \"empresa\": $json.empresa || \"\",\n  \"origem\": $json.origem || \"\",\n  \"data_cadastro\": $json.data_cadastro,\n  \"status_cadastro\": \"novo\",\n  \"status_notificacao\": \"pendente\",\n  \"tentativas_notificacao\": 0,\n  \"ultima_tentativa\": \"\",\n  \"observacoes\": \"\"\n}",
+        "options": {}
+      },
+      "id": "set-preparar-linha",
+      "name": "Preparar Linha",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "SUBSTITUA-PELO-ID-DA-PLANILHA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "nome": "={{ $json.nome }}",
+            "email": "={{ $json.email }}",
+            "telefone": "={{ $json.telefone }}",
+            "empresa": "={{ $json.empresa }}",
+            "origem": "={{ $json.origem }}",
+            "data_cadastro": "={{ $json.data_cadastro }}",
+            "status_cadastro": "={{ $json.status_cadastro }}",
+            "status_notificacao": "={{ $json.status_notificacao }}",
+            "tentativas_notificacao": "={{ $json.tentativas_notificacao }}",
+            "ultima_tentativa": "={{ $json.ultima_tentativa }}",
+            "observacoes": "={{ $json.observacoes }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "gsheets-cadastrar-lead",
+      "name": "Cadastrar Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1560, 300],
+      "continueOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL",
+          "name": "Google Sheets — Leads"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "equipe-comercial@suaempresa.com",
+        "subject": "=Novo lead cadastrado: {{ $json.nome }}",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html><html lang=\"pt-BR\"><head><meta charset=\"UTF-8\"><style>body{font-family:Arial,sans-serif;color:#333;font-size:14px}h2{color:#1a73e8}table{border-collapse:collapse;margin-top:12px}td{padding:6px 12px;border-bottom:1px solid #eee}td:first-child{font-weight:bold;color:#555;width:140px}.footer{margin-top:20px;color:#888;font-size:12px;border-top:1px solid #eee;padding-top:10px}</style></head><body><h2>📋 Novo lead cadastrado</h2><p>Olá, equipe comercial!</p><p>Um novo lead foi registrado automaticamente no sistema e está pronto para acompanhamento.</p><table><tr><td>Nome:</td><td>{{ $json.nome }}</td></tr><tr><td>E-mail:</td><td>{{ $json.email }}</td></tr><tr><td>Telefone:</td><td>{{ $json.telefone || 'Não informado' }}</td></tr><tr><td>Empresa:</td><td>{{ $json.empresa || 'Não informada' }}</td></tr><tr><td>Origem:</td><td>{{ $json.origem || 'Não informada' }}</td></tr><tr><td>Data do cadastro:</td><td>{{ $json.data_cadastro }}</td></tr></table><p style=\"margin-top:16px\">Acesse a planilha de leads para consultar as informações completas e iniciar o acompanhamento comercial.</p><div class=\"footer\">Atenciosamente,<br><strong>Automação de Leads — n8n</strong><br>Esta é uma mensagem automática. Não responda a este e-mail.</div></body></html>",
+        "options": {}
+      },
+      "id": "gmail-notificar-equipe",
+      "name": "Notificar Equipe",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1780, 300],
+      "continueOnFail": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL-GMAIL",
+          "name": "Gmail — Automação Leads"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "SUBSTITUA-PELO-ID-DA-PLANILHA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status_notificacao": "enviado",
+            "ultima_tentativa": "={{ $now.toISO() }}"
+          }
+        },
+        "where": {
+          "values": [
+            {
+              "column": "email",
+              "value": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "gsheets-status-enviado",
+      "name": "Atualizar Status Enviado",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2000, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL",
+          "name": "Google Sheets — Leads"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "SUBSTITUA-PELO-ID-DA-PLANILHA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status_notificacao": "falha",
+            "ultima_tentativa": "={{ $now.toISO() }}",
+            "observacoes": "Falha no envio do e-mail"
+          }
+        },
+        "where": {
+          "values": [
+            {
+              "column": "email",
+              "value": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "gsheets-status-falha",
+      "name": "Atualizar Status Falha",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2000, 400],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "SUBSTITUA-PELO-ID-DA-CREDENCIAL",
+          "name": "Google Sheets — Leads"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receber Lead": {
+      "main": [[{"node": "Normalizar Dados", "type": "main", "index": 0}]]
+    },
+    "Normalizar Dados": {
+      "main": [[{"node": "Validar Dados", "type": "main", "index": 0}]]
+    },
+    "Validar Dados": {
+      "main": [
+        [{"node": "Buscar Lead Existente", "type": "main", "index": 0}],
+        [{"node": "Marcar Invalido", "type": "main", "index": 0}]
+      ]
+    },
+    "Marcar Invalido": {
+      "main": [[{"node": "Encerrar Invalido", "type": "main", "index": 0}]]
+    },
+    "Buscar Lead Existente": {
+      "main": [[{"node": "Verificar Duplicidade", "type": "main", "index": 0}]]
+    },
+    "Verificar Duplicidade": {
+      "main": [
+        [{"node": "Marcar Duplicado", "type": "main", "index": 0}],
+        [{"node": "Preparar Linha", "type": "main", "index": 0}]
+      ]
+    },
+    "Marcar Duplicado": {
+      "main": [[{"node": "Encerrar Duplicado", "type": "main", "index": 0}]]
+    },
+    "Preparar Linha": {
+      "main": [[{"node": "Cadastrar Lead", "type": "main", "index": 0}]]
+    },
+    "Cadastrar Lead": {
+      "main": [[{"node": "Notificar Equipe", "type": "main", "index": 0}]]
+    },
+    "Notificar Equipe": {
+      "main": [
+        [{"node": "Atualizar Status Enviado", "type": "main", "index": 0}],
+        [{"node": "Atualizar Status Falha", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "SUBSTITUA-PELO-ID-DO-WORKFLOW-DE-ERROS",
+    "maxConcurrency": 1
+  },
+  "meta": {
+    "instanceId": "SUBSTITUA-PELO-ID-DA-INSTANCIA-N8N"
+  },
+  "_README": "IMPORTANTE: Substitua todos os valores marcados com 'SUBSTITUA-PELO-...' pelos valores reais do seu ambiente n8n antes de importar. Não commite IDs de credenciais ou planilhas reais neste arquivo."
+}
